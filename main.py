@@ -29,7 +29,7 @@ def get_json_info(
 ):
 
     try:
-        return str(json_info.get(info)).replace("\n", "").split("\\\\")[0]
+        return str(json_info.get(info)).replace("\n", "").split("//")[0]
     except Exception:
         return "ERROR"
 
@@ -37,14 +37,8 @@ def get_json_info(
 def main():
     file = Path(__file__).parent.joinpath("./MTG_CARDS.csv")
     df = pd.read_csv(file)
-    print(df.columns)
-    df[["cn", "exp"]] = df["Idetifyer"].str.split(" ", expand=True, n=1)
-    df["cn"] = df["cn"].str.strip()
     df["exp"] = df["exp"].str.strip()
-    df.drop(columns=["Idetifyer"], inplace=True)
-    print(df.head())
-    print(df.shape)
-    df = df.groupby(by=["cn", "exp"])["qt_cards"].sum().reset_index().sort_values(by=["qt_cards", "cn", "exp"], ascending=False).reset_index()
+    df = df.groupby(by=["cn", "exp"])["qt_cards"].sum().reset_index().sort_values(by=["qt_cards", "cn", "exp"], ascending=False).reset_index(drop=True)
     print(df.head(10))
     print(df.shape)
 
@@ -77,15 +71,19 @@ def main():
     for info in infos_to_get:
         df[info] = df["info"].apply(lambda json_info: get_json_info(json_info, info=info))
 
-    
     df.drop(columns=["info"], inplace=True)
     df.to_csv(
         Path(__file__).parent.joinpath("./MTG_CARDS_RESULT.tsv"), sep="\t", index=False
     )
-    
-    with open(Path(__file__).parent.joinpath("./MTG_CARDS_FOR_COMMANDER_SPELLBOOK.txt"), mode="w") as f:
+
+    with open(Path(__file__).parent.joinpath("./MTG_CARDS_FOR_COMMANDER_SPELLBOOK.txt"), mode="w",encoding="utf-8") as commander_spellbook:
         for data in df[["qt_cards", "name"]].itertuples(index=False, name=None):
-            f.write(f"{data[0]}x {data[1]}\n")
+            commander_spellbook.write(f"{data[0]}x {data[1]}\n")
+
+    with open(Path(__file__).parent.joinpath("./MTG_CARDS_FOR_MOXFIELD.txt"), mode="w") as moxfield:
+        moxfield.write("Count,Name,Edition,Condition,Language,Foil,Collector Number,Alter,Proxy,Purchase Price")
+        for data in df[["qt_cards", "name", "exp", 'cn']].itertuples(index=False, name=None):
+            moxfield.write(f"{data[0]},{data[1]},{data[2]},NM,en,,{data[3]},,FALSE,\n")
 
 if __name__ == "__main__":
     main()
