@@ -5,10 +5,11 @@ from multiprocessing import Pool, cpu_count
 from time import sleep
 from tqdm import tqdm
 from threading import Lock
-from csv import QUOTE_NONE
 
 request_lock = Lock()
 
+MTG_CARDS_FOLDER = Path(__file__).parent.joinpath("./Cards")
+MTG_CARDS_RESULT_FOLDER = Path(__file__).parent.joinpath("./Cards").joinpath("Result")
 
 def get_info(args):
     cn, exp = args
@@ -33,17 +34,14 @@ def get_json_info(
     except Exception:
         return "ERROR"
 
-
 def main():
-    file = Path(__file__).parent.joinpath("./MTG_CARDS.csv")
+    file = MTG_CARDS_FOLDER.joinpath("./MTG_CARDS.csv")
+
     df = pd.read_csv(file)
     df["exp"] = df["exp"].str.strip()
     df = df.groupby(by=["cn", "exp"])["qt_cards"].sum().reset_index().sort_values(by=["qt_cards", "cn", "exp"], ascending=False).reset_index(drop=True)
-    print(df.head(10))
-    print(df.shape)
 
     p = Pool(cpu_count())
-
     r = list(
         tqdm(
             p.imap(get_info, [*df[["cn", "exp"]].itertuples(index=False, name=None)]),
@@ -73,17 +71,13 @@ def main():
 
     df.drop(columns=["info"], inplace=True)
     df.to_csv(
-        Path(__file__).parent.joinpath("./MTG_CARDS_RESULT.tsv"), sep="\t", index=False
+        MTG_CARDS_RESULT_FOLDER.joinpath("./MTG_CARDS_RESULT.tsv"), sep="\t", index=False
     )
 
-    with open(Path(__file__).parent.joinpath("./MTG_CARDS_FOR_COMMANDER_SPELLBOOK.txt"), mode="w",encoding="utf-8") as commander_spellbook:
+    with open(MTG_CARDS_RESULT_FOLDER.joinpath("./MTG_CARDS_FOR_COMMANDER_SPELLBOOK.txt"), mode="w",encoding="utf-8") as commander_spellbook:
         for data in df[["qt_cards", "name"]].itertuples(index=False, name=None):
             commander_spellbook.write(f"{data[0]}x {data[1]}\n")
 
-    with open(Path(__file__).parent.joinpath("./MTG_CARDS_FOR_MOXFIELD.txt"), mode="w") as moxfield:
-        moxfield.write("Count,Name,Edition,Condition,Language,Foil,Collector Number,Alter,Proxy,Purchase Price")
-        for data in df[["qt_cards", "name", "exp", 'cn']].itertuples(index=False, name=None):
-            moxfield.write(f"{data[0]},{data[1]},{data[2]},NM,en,,{data[3]},,FALSE,\n")
 
 if __name__ == "__main__":
     main()
